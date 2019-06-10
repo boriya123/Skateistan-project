@@ -1,16 +1,20 @@
 ### setting up directory
 
-setwd("D://personal/swc project/files")
+setwd("D://projects/swb/skaeistan/files")
 
 ##initialize libarry
 
 library(dplyr)
 library(ggplot2)
 library(tidyr)
-library(readxl)
 library(xlsx)
 library(tidyverse)
 library(plyr)
+library(reshape2)
+library(wordcloud)
+library(tidytext)
+library(ggpubr)
+
 
 
 
@@ -69,12 +73,11 @@ PreQ.PrevYear$`Friends made at Skateistan`[PreQ.PrevYear$`Friends made at Skatei
 PreQ.PrevYear$`I am good at reading and writing`[PreQ.PrevYear$`I am good at reading and writing` == "Neural"] <- "Neutral"
 PreQ.PrevYear$`I am good at reading and writing`[PreQ.PrevYear$`I am good at reading and writing` == "Strongly agree"] <- "Strongly Agree"
 
-### writing excel sheet
-# write.xlsx(PreQ.PrevYear, "PreQ.PrevYea.xlsx")
 
-#### Visulization 
 
-### gender studies
+#### Visulization ######
+
+### 1. gender studies
 
 # cross tab for frequency counts for location and gender
 
@@ -85,25 +88,56 @@ names(Freq_table_gender_location_df)[1:2]<-paste(c("Project_Sites","Gender"))  #
 
 ### creating an barplot ---- freq count of gender in project_sites 
 
-p<-ggplot(data=Freq_table_gender_location_df, aes(x=Project_Sites, y=Freq, fill=Gender)) +geom_bar(stat="identity", position=position_dodge())
-p<-p+geom_text(aes(label=Freq), vjust=1.6, color="white",position = position_dodge(0.9), size=3.5)+scale_fill_brewer(palette="Paired")+theme_minimal()                
-p
+gender_count_barplot<-ggplot(data=Freq_table_gender_location_df, aes(x=Project_Sites, y=Freq, fill=Gender)) +geom_bar(stat="identity", position=position_dodge())
+gender_count_barplot<-p+geom_text(aes(label=Freq), vjust=1.6, color="white",position = position_dodge(0.9), size=3.5)+scale_fill_brewer(palette="Paired")+theme_minimal()                
+gender_count_barplot
 
-#### role model
+#### role model studies
+
+#extracting all role model columns with gender and project sites
 Freq_table_role_model<- PreQ.PrevYear %>% dplyr:: select("Project_Site","Gender","Role Model - Father","Role Model - Brother/Sister","Role Model - Other family member","Role Model - Friends at Skateistan","Role Model - Skateistan Educator","Role Model - Someone older than me at Skateistan","Role Model - Other","Role Model - Would you like to say who?")
-# Freq_table_role_model<- as.data.frame(Freq_table_role_model)
-Freq_table_role_model[Freq_table_role_model==""]<- NA
-# write.xlsx(Freq_table_role_model,"Freq_table_role_model_na.xlsx")
 
-vvvv<- lapply(Freq_table_role_model,table)
-# mylist= as.data.frame(do.call(cbind,vvvv))
-mylist<-as.data.frame(do.call(rbind, vvvv))
+Freq_table_role_model[Freq_table_role_model==""]<- NA  # removing blanks with NA values
+View(Freq_table_role_model)
 
 
-# table(distinct(Freq_table_role_model))
+#### creating an Frequency counts for role model
+
+role_model_freq_counts<- as.data.frame(lapply(Freq_table_role_model,table))
+role_model_freq_counts
+
+role_model_freq_counts_reshape<-as.data.frame(melt(role_model_freq_counts)) #### reshaping the list to an required table
+col_role_model<- c("L1","Var1","value")
+role_model_freq_counts_reshape<- role_model_freq_counts_reshape[,col_role_model] ## arranging column for role model dataframe
 
 
-## role model ananlysys: comparison studies between father and brother/sister
+
+role_model_freq_counts_reshape_table<-role_model_freq_counts_reshape%>%spread(Var1,value)
+View(role_model_freq_counts_reshape_table)
+
+
+### Balloon plot of role model
+
+ggballoonplot(role_model_freq_counts_reshape, fill = "value")+
+  scale_fill_viridis_c(option = "C")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
