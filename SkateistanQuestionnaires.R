@@ -1,6 +1,6 @@
 ### setting up directory
 
-setwd("D://projects/swb/skaeistan/files")
+setwd("D://personal/swc project/files")
 
 ##initialize libarry
 
@@ -14,6 +14,12 @@ library(reshape2)
 library(wordcloud)
 library(tidytext)
 library(ggpubr)
+library(readxl)
+library(stringi)
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
 
 
 
@@ -89,37 +95,119 @@ names(Freq_table_gender_location_df)[1:2]<-paste(c("Project_Sites","Gender"))  #
 ### creating an barplot ---- freq count of gender in project_sites 
 
 gender_count_barplot<-ggplot(data=Freq_table_gender_location_df, aes(x=Project_Sites, y=Freq, fill=Gender)) +geom_bar(stat="identity", position=position_dodge())
-gender_count_barplot<-p+geom_text(aes(label=Freq), vjust=1.6, color="white",position = position_dodge(0.9), size=3.5)+scale_fill_brewer(palette="Paired")+theme_minimal()                
+gender_count_barplot<-gender_count_barplot+geom_text(aes(label=Freq), vjust=1.6, color="white",position = position_dodge(0.9), size=3.5)+scale_fill_brewer(palette="Paired")+theme_minimal()                
 gender_count_barplot
 
 #### role model studies
 
 #extracting all role model columns with gender and project sites
-Freq_table_role_model<- PreQ.PrevYear %>% dplyr:: select("Project_Site","Gender","Role Model - Father","Role Model - Brother/Sister","Role Model - Other family member","Role Model - Friends at Skateistan","Role Model - Skateistan Educator","Role Model - Someone older than me at Skateistan","Role Model - Other","Role Model - Would you like to say who?")
+Freq_table_role_model<- PreQ.PrevYear %>% 
+  dplyr:: select("Project_Site","Gender","Role Model - Father","Role Model - Brother/Sister","Role Model - Other family member","Role Model - Friends at Skateistan","Role Model - Skateistan Educator","Role Model - Someone older than me at Skateistan","Role Model - Other","Role Model - Would you like to say who?")
+Freq_table_role_model[Freq_table_role_model==""]<- "NULL"  # removing blanks with NA values
 
-Freq_table_role_model[Freq_table_role_model==""]<- NA  # removing blanks with NA values
-View(Freq_table_role_model)
 
 
-#### creating an Frequency counts for role model
+#### transforming role model column and calculating frequency count####
 
-role_model_freq_counts<- as.data.frame(lapply(Freq_table_role_model,table))
-role_model_freq_counts
+role_model_freq_counts<- lapply(Freq_table_role_model,table)
 
+### converting to dataframe and reshape the structure of dataframe
 role_model_freq_counts_reshape<-as.data.frame(melt(role_model_freq_counts)) #### reshaping the list to an required table
-col_role_model<- c("L1","Var1","value")
+col_role_model<- c("L1","Var1","value")## column na,es of reshape dataframe
 role_model_freq_counts_reshape<- role_model_freq_counts_reshape[,col_role_model] ## arranging column for role model dataframe
 
 
-
+## spreading the structure of dataframe
 role_model_freq_counts_reshape_table<-role_model_freq_counts_reshape%>%spread(Var1,value)
-View(role_model_freq_counts_reshape_table)
 
 
 ### Balloon plot of role model
 
-ggballoonplot(role_model_freq_counts_reshape, fill = "value")+
+rolemodel_freqcount_balloonplot<- ggballoonplot(role_model_freq_counts_reshape, fill = "value")+
   scale_fill_viridis_c(option = "C")
+
+
+## sentimental analysis
+
+#extracting all the Role Model - Would you like to say who? rows 
+
+role_model_who_says<- role_model_freq_counts_reshape %>% 
+  filter(L1=="Role Model - Would you like to say who?")
+
+## transforming text from role model
+
+role_model_who_says<-role_model_who_says[2]
+role_vec <- as.matrix(role_model_who_says)
+role_vec_spl_cha_remove<- gsub(".","",role_vec,fixed=TRUE)
+role_vec_spl_cha_remove<- as.vector(role_vec_spl_cha_remove)
+
+
+## extract role ansers  columns
+
+##corpus
+
+docs<- Corpus(VectorSource(role_vec_spl_cha_remove))
+
+# Convert the text to lower case
+docs <- tm_map(docs, content_transformer(tolower))
+# Remove numbers
+docs <- tm_map(docs, removeNumbers)
+# Remove english common stopwords
+docs <- tm_map(docs, removeWords, stopwords("english"))
+# Remove your own stop word
+# specify your stopwords as a character vector
+docs <- tm_map(docs, removeWords, c("blabla1", "blabla2")) 
+# Remove punctuations
+docs <- tm_map(docs, removePunctuation)
+# Eliminate extra white spaces
+docs <- tm_map(docs, stripWhitespace)
+# Text stemming
+# docs <- tm_map(docs, stemDocument)
+
+
+
+dtm <- TermDocumentMatrix(docs)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+rownames(d)<- NULL ## remove rownames from dataframe
+d<-d %>% filter(word !="null")
+
+p<-ggplot(d,aes(word,freq))+geom_bar(stat="identity")+geom_text(aes(label=freq))
+p<-p+theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+word_rolemodel<-wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=100, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+word_rolemodel
+
+
+
+###loding files
+
+### pre questionnaire BTS 2017-18
+
+PreQ.PrevYear <- read_excel("Copy of Student Pre-Questionnaire Back-to-School 2017-2018 Group (Afghanistan).xlsx")
+
+
+
+
+
+
+
+
+
+
+ 
+ 
+ 
+
+
+
+
+
+
+
 
 
 
