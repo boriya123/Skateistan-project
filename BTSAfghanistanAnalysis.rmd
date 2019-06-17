@@ -1,0 +1,838 @@
+---
+title: "Back-To-School Afghanistan Questionnaire Analysis"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+
+```{r include=FALSE}
+
+library(ggalt)
+library(reshape2)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+#library(xlsx)
+library(tidyverse)
+library(plyr)
+#library(tidytext)##
+library(ggpubr)## ballomnplot
+library(readxl)##reading excel
+library(stringi)#string operations
+library(tm)##wordcloud
+library(SnowballC)##wordcloud
+library(wordcloud)##wordcloud
+library(RColorBrewer)##wordcloud
+library(ggcorrplot)##correlogram plot
+library(qdapRegex) ##removing emotions
+library(knitr)
+library(corrplot)
+
+
+```
+
+```{r setup, include=FALSE, echo=FALSE}
+require("knitr")
+opts_knit$set(root.dir = 'D://personal/swb project/files_bts')
+
+```
+
+### Reading in 2017-2018 Questionnaires as PreQ and PostQ.PrevYear
+```{r}
+PostQ.PrevYear <- readRDS("2017-2018PostQBTS.RDS")
+PreQ.PrevYear <- readRDS("2017-2018PreQBTS.RDS")
+
+head(PreQ.PrevYear)
+head(PostQ.PrevYear)
+
+```
+
+
+### Reading in 2018-2019 Questionnaires as PreQ and PostQ.CurrYear
+```{r}
+PostQ.CurrYear <- readRDS("2018-2019PostQBTS.RDS")
+PreQ.CurrYear <- readRDS("2018-2019PreQBTS.RDS")
+
+head(PreQ.CurrYear)
+head(PostQ.CurrYear)
+
+```
+
+
+# FUNCTION TO CREATE COMPARISON SUMMARIES BETWEEN PRE AND POST QUESTIONNAIRES
+
+This function takes in a set of Pre and Post questionnaires for a particular year (scalable for any year) and calculates the frequency and relative frequency for each type of response. the type of response depends on the options given. Relative frequency amounts are in number format, but are meant to be percentages.
+```{r}
+Countfunc <- function(PreQ.df, PostQ.df, field) {
+  
+  PreQ.df[[field]][PreQ.CurrYear[[field]] == ""] <- "Unsure"
+  PostQ.df[[field]][PostQ.CurrYear[[field]] == ""] <- "Unsure"
+  
+  #PreQ.df<-PreQ.df[!(PreQ.df[[field]]==""),]
+  #PostQ.df<-PostQ.df[!(PostQ.df[[field]]==""),]
+  
+  # Specific regex to remove only trailing whitespace in columns
+  PreQ.df[[field]] <- gsub('\\s+$', '', PreQ.df[[field]])
+  PostQ.df[[field]] <- gsub('\\s+$', '', PostQ.df[[field]])
+
+  PreQ.df.summ <- PreQ.df %>%
+    plyr::count(vars = c(paste0("`",field,"`"),"`Project Site`")) %>%
+    dplyr::mutate(PreQ.rel.freq = round(100 * freq/sum(freq), 0))
+    #dplyr::mutate(PreQ.rel.freq = paste0(round(100 * freq/sum(freq), 0), "%"))
+  
+  names(PreQ.df.summ)[1] <- "ID"
+  
+  print(PreQ.df.summ)
+  
+  PostQ.df.summ <- PostQ.df %>%
+    plyr::count(vars = c(paste0("`",field,"`"),"`Project Site`")) %>%
+    #dplyr::mutate(PostQ.rel.freq = paste0(round(100 * freq/sum(freq), 0), "%"))
+    dplyr::mutate(PostQ.rel.freq = round(100 * freq/sum(freq), 0))
+
+  
+  names(PostQ.df.summ)[1] <- "ID"
+  
+  print(PostQ.df.summ)
+  
+  df <- merge(PreQ.df.summ, PostQ.df.summ, by=c("ID","Project.Site"), all=TRUE, suffixes=c(".PreQ", ".PostQ"))
+  names(df)[1] <- field
+  df[is.na(df)] <- 0
+  
+  df
+}
+```
+
+# FUNCTION TO CREATE CUSTOM DUMBELL PLOTS
+
+This function takes in a table that is the result of Countfunc - a summary table for a particular type of question with frequency and relative frequency per response, and outputs a Dumbbell plot per location. Location refers to the city, and not the schools, since one set of questionnaires doesn't contain school information.
+```{r}
+Graphfunc <- function(df, y, x, xend) {
+  gg <- ggplot(df, aes_string(x=x, xend=xend, y=paste0("`",y,"`"))) + 
+    #scale_x_discrete() + 
+    #create a thick line between x and xend instead of using defaut 
+    #provided by geom_dubbell
+    geom_segment(aes_string(x=x, 
+                     xend=xend, 
+                     y=paste0("`",y,"`"), yend=paste0("`",y,"`")),
+                 color="#b2b2b2", size=1.5)+
+    geom_dumbbell(color="light blue", 
+                  size_x=4, 
+                  size_xend = 4,
+                  colour_x="#edae52", 
+                  colour_xend = "#9fb059")+
+    labs(x=NULL, y=NULL,
+         subtitle=y)+
+    geom_text(color="black", size=4, 
+              aes(x=PreQ.rel.freq, label=PreQ.rel.freq))+
+    geom_text(aes(x=PostQ.rel.freq, label=PostQ.rel.freq), 
+              color="black", size=4) +
+    facet_grid( ~ Project.Site)
+  
+  gg
+}
+```
+
+# RESULTS
+
+### Teamwork
+```{r}
+Teamwork.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I believe I can work well in a team/group")
+Teamwork.CurrYear
+```
+
+Decisive improvements in teamwork, with almost every student believing that they can work well in a team/group by the end of the school year. 
+```{r}
+Graphfunc(Teamwork.CurrYear, y="I believe I can work well in a team/group", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+ 
+```{r public speaking, eval=FALSE, include=FALSE}
+# print(colnames(PreQ.CurrYear))
+Public.Speaking.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I believe I can speak in front of the class (public speaking)")
+Public.Speaking.CurrYear
+```
+
+ 
+```{r include=FALSE}
+
+```
+
+
+### Safety in Skatepark
+```{r}
+Skatepark.Safety.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"How do you feel in the skatepark")
+Skatepark.Safety.CurrYear
+```
+
+Statistics available only for 2018-2019. At the beginning of the year approximately 30% of the students weren't sure about their safety in the skatepark, while a high proportion of students in Mazar-e-Sharif felt unsafe. Towards the end of the year however, all but one student felt safe in the skatepark. A remarkable improvement.
+```{r}
+Graphfunc(Skatepark.Safety.CurrYear, y="How do you feel in the skatepark", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+### Safety in classroom
+```{r}
+Classroom.Safety.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"How do you feel in the classroom")
+Classroom.Safety.CurrYear
+```
+
+Available only for 2018-2019. Most students felt safe at the start of the year, while all but one student felt safe by the end. 
+```{r}
+Graphfunc(Classroom.Safety.CurrYear, y="How do you feel in the classroom", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+### Comfort in talking to an educator at Skateistan
+```{r}
+Educator.Safety.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"How do you feel talking with an Educator at Skateistan")
+Educator.Safety.CurrYear
+```
+
+Available only for 2018-2019. Schools in Kabul saw a leap in student comfort levels in this aspect, and overall, every student felt safe by the end of the year, which is a testament to the quality of the Educators.
+```{r}
+Graphfunc(Educator.Safety.CurrYear, y="How do you feel talking with an Educator at Skateistan", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+### Safety learning with volunteer/youth leader
+```{r}
+Volunteer.Leader.Safety.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"How do you feel learning with my class volunteer / youth leader")
+Volunteer.Leader.Safety.CurrYear
+```
+
+Available only for 2018-2019. Trends seen are similar to that as comfort in talking to Educators
+
+```{r}
+Graphfunc(Volunteer.Leader.Safety.CurrYear, y="How do you feel learning with my class volunteer / youth leader", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+### Time studying 
+```{r}
+Time.Studying.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I believe I can spend time studying")
+Time.Studying.CurrYear
+```
+
+Available only for 2018-2019. Big improvemts seen in Kabul, with a vast majority of students believing in their ability to spend time studying
+
+```{r}
+Graphfunc(Time.Studying.CurrYear, y="I believe I can spend time studying", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+### Belief in doing well in school
+```{r}
+well.School.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I believe I can do well in school")
+well.School.CurrYear
+```
+
+Available only for 2018-2019. 2 students in Mazar-e-Sharif and 1 in Kabul lack confidence in doing well in school, so there is a minor room for improvement. But there is still a big improvement in a vast majority of students 
+
+```{r}
+Graphfunc(well.School.CurrYear, y="I believe I can do well in school", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+```{r Sport.Skills, eval=FALSE, include=FALSE}
+Sport.Skills.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I believe I can enjoy sport/skateboarding skills")
+Sport.Skills.CurrYear
+```
+
+### New skateboard tricks 
+```{r}
+Skateboard.Tricks.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I believe I can learn new skateboard tricks")
+Skateboard.Tricks.CurrYear
+```
+
+Available only for 2018-2019. Perhaps one of the proudest achievements for Skateistan staff in Afghanistan, as schools across the country see vast improvements in students ability to skateboard. 
+
+```{r}
+Graphfunc(Skateboard.Tricks.CurrYear, y="I believe I can learn new skateboard tricks", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+### Good at skateboarding
+```{r}
+Good.Skateboarding.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I am good at skateboarding")
+Good.Skateboarding.CurrYear
+```
+
+Available only for 2018-2019. Similar to the previous section, vast improvement seen in students across the country
+
+```{r}
+Graphfunc(Good.Skateboarding.CurrYear, y="I am good at skateboarding", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+### Good at other sports is okay. Only for 2018-2019
+```{r}
+Good.Sports.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I am good at other sports")
+Good.Sports.CurrYear
+```
+
+Available only for 2018-2019. Students are largely confident in their ability to play other sports, barring a few.
+
+```{r}
+Graphfunc(Good.Sports.CurrYear, y="I am good at other sports", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+### Calm and relaxed is okay. Only for 2018-2019
+```{r}
+Calm.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"Over the past 2-3 weeks I have felt calm and relaxed")
+Calm.CurrYear
+```
+
+Available only for 2018-2019. Every student had a feeling of calm and relaxation in the time preceding to filling the questionnaire, which jumps up from 80% at the start of the year. 
+
+```{r}
+Graphfunc(Calm.CurrYear, y="Over the past 2-3 weeks I have felt calm and relaxed", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+### Fresh and rested is okay. Only for 2018-2019
+```{r}
+Fresh.Rested.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"Over the past 2-3 weeks I wake up feeling fresh and rested")
+Fresh.Rested.CurrYear
+```
+
+Available only for 2018-2019. Almost every student had a feeling of being fresh and rested in the time preceding to filling the questionnaire, which jumps up from 68% at the start of the year. 
+
+```{r}
+Graphfunc(Fresh.Rested.CurrYear, y="Over the past 2-3 weeks I wake up feeling fresh and rested", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+### My daily life has been filled with things that interest me
+```{r}
+Life.Interest.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"Over the past 2-3 weeks My daily life has been filled with things that interest me")
+Life.Interest.CurrYear
+```
+
+Available only for 2018-2019. Barring two students in Kabul, every student had an optimistic view on their daily life in the time preceding to filling the questionnaire, which jumps up from just 65% at the start of the year. 
+
+```{r}
+Graphfunc(Life.Interest.CurrYear, "Over the past 2-3 weeks My daily life has been filled with things that interest me", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+### Gender
+```{r gender, eval=FALSE, include=FALSE}
+Gender.PrevYear <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"Gender")
+Gender.PrevYear
+```
+
+```{r}
+Gender.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"Gender")
+Gender.CurrYear
+```
+
+```{r}
+Graphfunc(Gender.CurrYear, "Gender", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+### Safety at Skateistan
+
+Over two years, the feeling of safety has highly increased at Skateistan. Different metrics were used in the two years, but the feeling of safety increased from 19% to a whopping 98% at the end of the 2017-2018 school year, with a majority of the improvement coming from Mazar-e-Sharif. This feeling has stabilized and crept higher from 83% to a 100% in 2018-2019. Once again, it is a testament to the staff of Skateistan. Note than in 2017-2018, safety at Skateistan is discussed, while in 2018-2019, travel to/from Skateistan is discussed, which explains the slight variation in results.  
+```{r}
+Safety.PrevYear <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"How safe do you feel at Skateistan?")
+Safety.PrevYear
+```
+
+```{r}
+Graphfunc(Safety.PrevYear, "How safe do you feel at Skateistan?", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+```{r}
+Safety.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"How do you feel traveling to/from Skateistan")
+Safety.CurrYear
+```
+
+```{r}
+Graphfunc(Safety.CurrYear, "How do you feel traveling to/from Skateistan", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+### BTS class experience
+```{r}
+BTS.Experience.PrevYear <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"My experience coming to BTS classes has been")
+BTS.Experience.PrevYear
+```
+
+Available only for 2017-2018. At the start of the year, about 87% thought it was good and 10% thought it was very good, while at the end of the year, 81% thought it was very good while the rest thought it was good. It shows an improvement in quality over the year. 
+```{r}
+Graphfunc(BTS.Experience.PrevYear, "My experience coming to BTS classes has been", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+### To be seen if confidence can be matched with general liking of oneself
+```{r}
+Confidence.PrevYear <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"Confidence since joining the program has")
+Confidence.PrevYear
+```
+
+```{r}
+Graphfunc(Confidence.PrevYear, "Confidence since joining the program has", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+```{r confidence, eval=FALSE, include=FALSE}
+Confidence.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"Confidence since joining the program has")
+Confidence.CurrYear
+```
+
+### Learning usefull skills from BTS classes
+
+This metric has also been measured over two years
+```{r}
+Learn.Skills.PrevYear <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"I have learned a lot of useful skills and lessons since coming to BTS classes at Skateistan")
+Learn.Skills.PrevYear
+```
+
+```{r}
+Graphfunc(Learn.Skills.PrevYear, "I have learned a lot of useful skills and lessons since coming to BTS classes at Skateistan", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+```{r learn_skills, eval=FALSE, include=FALSE}
+Learn.Skills.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I have learned a lot of useful skills and lessons since coming to BTS classes at Skateistan")
+Learn.Skills.CurrYear
+```
+
+
+```{r}
+Friends.PrevYear <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"Friends made at Skateistan")
+Friends.PrevYear
+```
+
+```{r}
+Graphfunc(Friends.PrevYear, "Friends made at Skateistan", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+```{r include=FALSE}
+
+```
+
+
+
+### Reading and Writing
+
+Over two years, a strong improvement is seen, driven by the improvement in Mazar-e-Sharif over the course of 2017-2018. By the end of the 2018-2019 school year, every student believed in their reading abilities while an incredible 92% believed in their writing skills
+```{r}
+Reading.Writing.PrevYear <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"I am good at reading and writing")
+Reading.Writing.PrevYear
+```
+
+```{r}
+Graphfunc(Reading.Writing.PrevYear, "I am good at reading and writing", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+```{r}
+Reading.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I am good at reading")
+Reading.CurrYear
+```
+
+```{r}
+Graphfunc(Reading.CurrYear, "I am good at reading", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+```{r}
+Writing.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I am good at writing")
+Writing.CurrYear
+```
+
+```{r}
+Graphfunc(Writing.CurrYear, "I am good at writing", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+```{r math_prevyr, eval=FALSE, include=FALSE}
+Math.PrevYear <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"I am good at math")
+Math.PrevYear
+```
+
+```{r}
+Math.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"I am good at math")
+Math.CurrYear
+```
+
+Similarly, a vast improvement is seen in students' ability to study and enjoy mathematics
+```{r}
+Graphfunc(Math.CurrYear, "I am good at math", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+### Work history
+```{r}
+Work.PrevYear <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"Tell us about your work history")
+Work.PrevYear
+```
+
+Available only for 2017-2018. Joining Skateistan helps marginally improve the awareness of education to the family of students, as the proportion of students who continued to work alongside attending Skateistan lessons dropped from 38% to 29%, while 16% stopped working after joining, as opposed to 10% at the start of the 2017 school year. Meanwhile, no student started working after attending Skateistan classes.
+
+```{r}
+Graphfunc(Work.PrevYear, "Tell us about your work history", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+
+```{r education, eval=FALSE, include=FALSE}
+Education.PrevYear <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"My parents/family want me to complete my education until")
+Education.PrevYear
+```
+
+```{r}
+Education.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"My parents/family want me to complete my education until")
+Education.CurrYear
+```
+
+### Graph shows clear advancements, but is a bit unclean. Scope to improve it
+
+Attending Skateistan continues to improve the outlook of education for students, and makes students want to pursue higher education. At the start of 2018-2019, 31% wanted to attend university or college while 54% wanted to attain a high school diploma, while these proportions increased to 83% and decreased to 9% respectively.
+```{r}
+Graphfunc(Education.CurrYear, "My parents/family want me to complete my education until", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+```{r rolemodel, eval=FALSE, include=FALSE}
+Role.Model.Skateistan.Educator.PrevYear <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"Role Model - Skateistan Educator")
+Role.Model.Skateistan.Educator.PrevYear
+```
+
+### Role model Skateistan Educator
+```{r}
+Role.Model.Skateistan.Educator.CurrYear <- Countfunc(PreQ.CurrYear,PostQ.CurrYear,"Role Model - Skateistan Educator")
+Role.Model.Skateistan.Educator.CurrYear
+```
+
+
+Almost every student saw a Skateistan Educator as their role model by the end of the 2018-2019 school year, as opposed to just 66% at the start of the year
+```{r}
+Graphfunc(Role.Model.Skateistan.Educator.CurrYear, "Role Model - Skateistan Educator", x="PreQ.rel.freq", xend="PostQ.rel.freq")
+```
+
+```{r include=FALSE}
+#Skateboarding.Sports <- Countfunc(PreQ.PrevYear,PostQ.PrevYear,"I am good at skateboarding and sports")
+#Skateboarding.Sports
+```
+
+
+```{r bts17_18excel, eval=FALSE, include=FALSE}
+l <- list(Gender = Gender, Safety = Safety, Work = Work, Math = Math, Learn.Skills = Learn.Skills, Confidence=Confidence, BTS.Experience=BTS.Experience, Education=Education, Reading.Writing=Reading.Writing, Friends=Friends, Role.Model.Skateistan.Educator=Role.Model.Skateistan.Educator)
+openxlsx::write.xlsx(l, file = "BTS2017-2018Analysis.xlsx")
+```
+
+### Open items
+1) Public speaking exists only in 2018-2019. In PreQ, I believe I can share my ideas with the whole class can be coverted to public speaking
+2) I like to help other students if they are struggling in the skatepark/classroom (empathy) in PreQ can be converted to helping others
+3) Enjoy sport/skateboarding skills. I believe I can enjoy sport/skateboarding skills (sport needs to change to sports in PostQ). Only for 2018-2019
+4) Gender stats from previous year has formatting issues
+5) Current year confidence needs to be resolved
+6) Learning usefull skills current year needs to be resolved
+7) CurrYear friends to be added. The nature of the question has changed
+8) Math previous year needs to be resolved
+9) Formatting for 2017-2018 education needs to be fixed
+10) Formatting for 2017-2018 Skateistan educator needs to be fixed
+11) Wordclouds need final treatment to remove stopwords
+
+
+WORDCLOUD CREATION (QUALITATIVE ANALYSIS)
+```{r}
+
+documents <- Corpus(VectorSource(PostQ.PrevYear))
+documents = tm_map(documents, content_transformer(tolower))
+documents = tm_map(documents, removePunctuation)
+documents = tm_map(documents, removeWords, stopwords("english"))
+
+wordcloud(PostQ.PrevYear$`Comment (experience coming to BTS classes)`,max.words = 200,random.color = TRUE,random.order=FALSE, colors=brewer.pal(8, "Dark2"))
+```
+
+```{r}
+wordcloud(PostQ.PrevYear$`Comment (safety at Skateistan)`,max.words = 200,random.color = TRUE,random.order=FALSE, colors=brewer.pal(8, "Dark2"), rot.per=0.35)
+```
+
+```{r}
+wordcloud(PostQ.PrevYear$`Comment (confidence since joining Skateistan)`,max.words = 200,random.color = TRUE,random.order=FALSE)
+```
+
+```{r}
+wordcloud(PostQ.PrevYear$`Role Model - Would you like to say who?`,max.words = 200,random.color = TRUE,random.order=FALSE)
+```
+
+```{r}
+wordcloud(PostQ.PrevYear$`Education level - Why/why not?`,max.words = 200,random.color = TRUE,random.order=FALSE)
+
+  
+```
+
+
+# Role model studies - Current Year PreQ
+```{r}
+#extracting all role model columns with gender and project sites
+role_model_preq_currentyr<- PreQ.CurrYear %>% select(matches('Proj|Gende|Role'))
+                                                
+role_model_preq_currentyr[role_model_preq_currentyr==""]<- "Not Available"  # removing blanks with NA values
+#role_model_preq_currentyr
+```
+
+
+```{r}
+#### transforming role model column and calculating frequency count####
+
+role_model_preq_currentyr_counts<- lapply(role_model_preq_currentyr,table)
+#role_model_preq_currentyr_counts
+```
+
+```{r}
+### converting to dataframe and reshape the structure of dataframe
+role_model_freq_counts_reshape_currentyr<-as.data.frame(melt(role_model_preq_currentyr_counts)) #### reshaping the list to an required table
+
+names(role_model_freq_counts_reshape_currentyr)[1:3]<-paste(c("Responses","Value","Questions"))
+
+
+col_role_models<- c("Questions","Responses","Value")## column na,es of reshape dataframe
+role_model_freq_counts_reshape_currentyr<-role_model_freq_counts_reshape_currentyr[,col_role_models] ## arranging column for role model dataframe
+
+#role_model_freq_counts_reshape_currentyr
+```
+
+
+```{r}
+## spreading the structure of dataframe
+role_model_freq_counts_reshape_currentyr_table<-role_model_freq_counts_reshape_currentyr%>%spread(Responses,Value)
+#role_model_freq_counts_reshape_currentyr_table
+```
+
+### Balloon plot of role model
+
+This balloon plot is an graphical way of displaying frequency count for each questions and based on its responses. As value increases from blue to yellow . The group falls into it have answered most number of questions.As from the plot we can see many questions were answered, so a proper strategy needed  to evvaluate why those are not responded.
+```{r,fig.width=14, fig.height=12}
+
+
+rolemodel_freqcount_balloonplot_curryr<- ggballoonplot(role_model_freq_counts_reshape_currentyr, fill = "value", size = 4)+
+  scale_fill_viridis_c(option = "C")
+rolemodel_freqcount_balloonplot_curryr
+```
+
+## Heatmap
+
+From this heatmap students mostly feel happy when they shated thie problems with their peers, teachers,family members. A more transparent system can build on top of it where student can speak freely that can results in removal of problem fear and netter communication among peers, parents and teachers
+```{r}
+role_model_freq_counts_reshape_heatmap_cy<-role_model_freq_counts_reshape_currentyr%>%spread(Questions,Value)
+
+role_model_freq_counts_reshape_heatmap_cy<- as.data.frame(role_model_freq_counts_reshape_heatmap_cy)
+role_model_freq_counts_reshape_heatmap_cy[is.na(role_model_freq_counts_reshape_heatmap_cy)] <- 0
+role_model_freq_counts_reshape_heatmap2_cy <- as.matrix(role_model_freq_counts_reshape_heatmap_cy[, -1])
+rownames(role_model_freq_counts_reshape_heatmap2_cy) <- role_model_freq_counts_reshape_heatmap_cy$Responses
+heatmap(role_model_freq_counts_reshape_heatmap2_cy,margins = c(8,8))
+
+```
+
+## Correlation table
+```{r}
+role_model_correltion_cy<-role_model_freq_counts_reshape_heatmap2_cy
+role_model_correltion_cy<-cor(role_model_correltion_cy)
+
+
+#rownames(role_model_correltion_cy)<-colnames(role_model_correltion_cy)
+
+role_model_correltion_cy<-as.data.frame(role_model_correltion_cy)
+role_model_correltion_cy
+```
+From this plot there might be an correlation present between the different subgroups of role model. As role model might have correlation as because those are our peer group like fatjer, mother,sister,friends, teachers which support each other. So if we needed to keep improve we needed to make a bond among these groups and can bring healthy intervation in students life.
+
+```{r,fig.width=14, fig.height=12}
+
+ggcorrplot(role_model_correltion_cy,hc.order = TRUE,type = "lower",lab = TRUE)
+
+```
+## Sentiment Analysis #####
+```{r}
+Role_Model_who_says_curryr<- role_model_freq_counts_reshape_currentyr %>% 
+  filter(Questions=="Role Model - Would you like to say who? How do you feel when you talk to them about your problems?")
+
+#Role_Model_who_says_curryr
+```
+
+```{r}
+## transforming text from role model
+
+Role_Model_who_says_curryr<-Role_Model_who_says_curryr[2]
+role_vec_cy <- as.matrix(Role_Model_who_says_curryr)
+role_vec_spl_cha_remove_cy<- gsub(".","",role_vec_cy,fixed=TRUE)
+role_vec_spl_cha_remove_cy<- as.vector(role_vec_spl_cha_remove_cy)
+#role_vec_spl_cha_remove_cy
+```
+
+# Wordcloud and wordplot
+```{r}
+## extract role answers  columns
+
+##corpus
+
+docs_cy<- Corpus(VectorSource(role_vec_spl_cha_remove_cy))
+
+# Convert the text to lower case
+docs_cy <- tm_map(docs_cy, content_transformer(tolower))
+
+# Remove numbers
+docs_cy <- tm_map(docs_cy, removeNumbers)
+
+# Remove english common stopwords
+docs_cy <- tm_map(docs_cy, removeWords, stopwords("english"))
+
+# Remove your own stop word
+# specify your stopwords as a character vector
+# Remove punctuations
+docs_cy <- tm_map(docs_cy, removePunctuation)
+
+# Eliminate extra white spaces
+docs_cy <- tm_map(docs_cy, stripWhitespace)
+
+# Text stemming
+docs_cy <- tm_map(docs_cy, stemDocument)
+
+dtm_cy <- TermDocumentMatrix(docs_cy)
+m_cy <- as.matrix(dtm_cy)
+v_cy <- sort(rowSums(m_cy),decreasing=TRUE)
+d_cy <- data.frame(word = names(v_cy),freq=v_cy)
+rownames(d_cy)<- NULL ## remove rownames from dataframe
+d_cy<-d_cy %>% filter(word !="null")
+
+d_cy %>% 
+    ggplot(aes(reorder(word,freq), freq)) + 
+      geom_col(fill = "skyblue3") + 
+      coord_flip() +geom_text(aes(label=freq),size=3)+
+      labs(x = "Words")
+
+# p_cy<-ggplot(d_cy,aes(word,freq))+geom_bar(stat="identity")+geom_text(aes(label=freq),size=5)
+# p_cy
+#p_cy
+#p_cy<-p+theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+word_rolemodel_cy<-wordcloud(words = d_cy$word, freq = d_cy$freq, min.freq = 1,max.words=200, random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+```
+From sentimental anaalysis of a particular group "Role model:would you like to say who" is of particular importance as from this analysis students wanted to express their thoughts to their peers. This make them to feel happy and ut solves their problem/ So they feel relax when they talk with their relatives, friends, classmates, teaches, parents.
+
+# Role Model analysis - Previous Year PreQ
+
+```{r}
+#extracting all role model columns with gender and project sites
+Freq_table_role_model<- PreQ.PrevYear %>% 
+  dplyr:: select("Project Site","Gender","Role Model - Father","Role Model - Brother/Sister","Role Model - Other family member","Role Model - Friends at Skateistan","Role Model - Skateistan Educator","Role Model - Someone older than me at Skateistan","Role Model - Other","Role Model - Would you like to say who?")
+Freq_table_role_model[Freq_table_role_model==""]<- "Not Available"  # removing blanks with NA values
+```
+
+```{r}
+#### transforming role model column and calculating frequency count####
+
+role_model_freq_counts<- lapply(Freq_table_role_model,table)
+
+### converting to dataframe and reshape the structure of dataframe
+role_model_freq_counts_reshape<-as.data.frame(melt(role_model_freq_counts)) #### reshaping the list to an required table
+col_role_model<- c("L1","Var1","value")## column na,es of reshape dataframe
+role_model_freq_counts_reshape<- role_model_freq_counts_reshape[,col_role_model] ## arranging column for role model dataframe
+#role_model_freq_counts_reshape
+
+## spreading the structure of dataframe
+role_model_freq_counts_reshape_table<-role_model_freq_counts_reshape%>%spread(Var1,value)
+
+```
+## Balloon Plot
+
+As described above this balloon plot is an graphical way of displaying frequency count for each questions and based on its responses. As value increases from blue to yellow . The group falls into it have answered most number of questions.As from the plot we can see many questions were answered, so a proper strategy needed  to evaluate why those are not responded.
+
+
+```{r,fig.width=14, fig.height=12}
+### Balloon plot of role model
+rolemodel_freqcount_balloonplot<- ggballoonplot(role_model_freq_counts_reshape, fill = "value")+
+  scale_fill_viridis_c(option = "C")
+rolemodel_freqcount_balloonplot
+```
+
+### Heatmap
+
+Heatmap show the similar kind of trend from previous year as trust is an issue where students discuss their problems with their peer group. As this heatmap shows similar trend educators needed to pick up those communication channels and try to make it better. If trust is broken then the percentage of student might downfall, so to increase the flow a better environment of discussion is needed where everyone can grow without any fear.
+```{r}
+role_model_freq_counts_reshape_heatmap<-role_model_freq_counts_reshape%>%spread(L1,value)
+role_model_freq_counts_reshape_heatmap<- as.data.frame(role_model_freq_counts_reshape_heatmap)
+role_model_freq_counts_reshape_heatmap[is.na(role_model_freq_counts_reshape_heatmap)] <- 0
+role_model_freq_counts_reshape_heatmap2 <- as.matrix(role_model_freq_counts_reshape_heatmap[, -1])
+rownames(role_model_freq_counts_reshape_heatmap2) <- role_model_freq_counts_reshape_heatmap$Var1
+heatmap(role_model_freq_counts_reshape_heatmap2)
+```
+### corelogram
+From this pre and post plot it is well established that role models having some sort of correlation which is an great sign for this program. As for motivation and for progress student always want inspiration and to overcome this way they learn from hardships their parents , teachers, freinds and relatives or other aspects has shown. This makes their morale boost and encourage in comtinula learning.
+
+
+```{r,fig.width=14, fig.height=12}
+role_model_correltion<-role_model_freq_counts_reshape_heatmap[,-1]
+#rownames(role_model_correltion)<-colnames(role_model_correltion)
+M<-round(cor(role_model_correltion),1)
+ggcorrplot(M,hc.order = TRUE,type='lower',lab=TRUE,lab_size=3, method="circle",colors = c("tomato2", "white", "springgreen3"), ggtheme=theme_bw,title="Correlogram of role models")
+```
+
+#### Sentiment analysis
+```{r}
+#extracting all the Role Model - Would you like to say who? rows 
+
+role_model_who_says<- role_model_freq_counts_reshape %>% 
+  filter(L1=="Role Model - Would you like to say who?")
+
+## transforming text from role model
+
+role_model_who_says<-role_model_who_says[2]
+role_vec <- as.matrix(role_model_who_says)
+role_vec_spl_cha_remove<- gsub(".","",role_vec,fixed=TRUE)
+role_vec_spl_cha_remove<- as.vector(role_vec_spl_cha_remove)
+
+
+## extract role ansers  columns
+
+docs<- Corpus(VectorSource(role_vec_spl_cha_remove))
+
+# Convert the text to lower case
+docs <- tm_map(docs, content_transformer(tolower))
+
+# Remove numbers
+docs <- tm_map(docs, removeNumbers)
+
+# Remove english common stopwords
+docs <- tm_map(docs, removeWords, stopwords("english"))
+
+# Remove your own stop word
+# specify your stopwords as a character vector
+docs <- tm_map(docs, removeWords, c("blabla1", "blabla2")) 
+
+# Remove punctuations
+docs <- tm_map(docs, removePunctuation)
+
+# Eliminate extra white spaces
+docs <- tm_map(docs, stripWhitespace)
+
+# Text stemming
+# docs <- tm_map(docs, stemDocument)
+
+
+
+dtm <- TermDocumentMatrix(docs)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+rownames(d)<- NULL ## remove rownames from dataframe
+d<-d %>% filter(word !="null")
+
+d %>% 
+    ggplot(aes(reorder(word,freq), freq)) + 
+      geom_col(fill = "grey") + 
+      coord_flip() +geom_text(aes(label=freq),size=3)+
+      labs(x = "words")
+
+# p<-ggplot(d,aes(word,freq))+geom_bar(stat="identity")+geom_text(aes(label=freq))
+# p<-p+theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+Most important thing that come up from the word cloud is word trust.Then family,teachers,friends,realtives. Trust plays a key role which shows whether student has bulit an relationship which makes them not to fear and tell their problems. As sample size is pretty small is hard to say but one thing is important from this outome student having trust in their peer group and which can accelerate well learning program.
+### word plot and word cloud
+
+
+```{r,fig.width=14, fig.height=12}
+word_rolemodel<-wordcloud(words = d$word, freq = d$freq, min.freq = 1,max.words=100, random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+```
+
